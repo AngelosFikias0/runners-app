@@ -1,62 +1,49 @@
-# Run Management API (Spring Boot)
+# Runners App
 
-> **A robust RESTful microservice built with Spring Boot for tracking athletic performance, featuring automated persistence and H2 database integration.**
-
-The **Run Management API** provides a structured way to log and analyze physical activity. It leverages the power of Spring Framework's ecosystem to provide a scalable, testable, and high-performance backend with full CRUD capabilities.
+A RESTful API for tracking athletic runs, built with Spring Boot 3, PostgreSQL, and Docker.
 
 ---
 
-## 📌 Architecture Overview
+## Architecture
 
-This application follows the standard **Spring Boot 3-Tier Architecture**, ensuring a clean separation of concerns between web requests and data persistence.
-
-
-
-```text
-       [ Client (Postman/cURL) ]
-                  |
-        (JSON / RESTful API)
-                  v
-       [ REST Controller Layer ]
-        (Request Mapping & Validation)
-                  |
-                  v
-       [ Service / Logic Layer ]
-        (Business Rules & Calculations)
-                  |
-                  v
-       [ Repository Layer (Spring Data) ]
-        (Hibernate / JPA / JDBC)
-                  |
-                  v
-       [ H2 In-Memory Database ]
+```
+Client (HTTP)
+    │
+    ▼
+RunController          ← request mapping, validation, HTTP status
+    │
+    ▼
+RunRepository          ← data access interface
+    │
+    ▼
+JdbcRunRepository      ← Spring JdbcClient implementation
+    │
+    ▼
+H2 (dev) / PostgreSQL (prod)
 ```
 
----
-
-## 🚀 Key Features
-
-* **Full CRUD Lifecycle:** Create, Read, Update, and Delete run records with automated JSON serialization.
-* **H2 Embedded Database:** Lightweight, zero-configuration database setup for development and testing.
-* **Web Console:** Real-time database monitoring via the H2 Web interface.
-* **Flexible Persistence:** Easy switching between in-memory volatile storage and local file persistence.
-* **Validation:** Ensuring data integrity for distance (miles), timing, and location types.
+Cross-cutting concerns (validation errors, illegal arguments) are handled centrally by `GlobalExceptionHandler` using RFC 9457 `ProblemDetail` responses.
 
 ---
 
-## 🚦 API Endpoints
+## API Endpoints
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| **GET** | `/api/runs` | Retrieve all recorded runs |
-| **GET** | `/api/runs/{id}` | Get specific run details by ID |
-| **POST** | `/api/runs` | Register a new run |
-| **PUT** | `/api/runs/{id}` | Update existing run data |
-| **DELETE** | `/api/runs/{id}` | Remove a run from the log |
+| Method   | Endpoint                     | Status  | Description              |
+| -------- | ---------------------------- | ------- | ------------------------ |
+| `GET`    | `/api/runs`                  | 200     | List all runs            |
+| `GET`    | `/api/runs/{id}`             | 200/404 | Get a run by ID          |
+| `GET`    | `/api/runs/search?location=` | 200     | Filter runs by location  |
+| `POST`   | `/api/runs`                  | 201     | Create a new run         |
+| `PUT`    | `/api/runs/{id}`             | 204     | Update an existing run   |
+| `DELETE` | `/api/runs/{id}`             | 204     | Delete a run             |
+| `GET`    | `/actuator/health`           | 200     | Application health check |
+| `GET`    | `/actuator/metrics`          | 200     | Application metrics      |
 
-### Sample POST Payload
+### Sample Request Body (POST / PUT)
+
 ```json
 {
+  "id": 11,
   "title": "Evening Trail Run",
   "startedOn": "2024-05-01T18:00:00",
   "completedOn": "2024-05-01T19:30:00",
@@ -65,54 +52,110 @@ This application follows the standard **Spring Boot 3-Tier Architecture**, ensur
 }
 ```
 
----
-
-## 🧰 Technical Stack
-
-* **Framework:** Spring Boot 3.x
-* **Language:** Java 17+
-* **Build Tool:** Maven
-* **Database:** H2 (In-memory/File-based)
-* **Tools:** Spring Data JPA, Hibernate, Jackson (JSON)
+`location` must be `INDOOR` or `OUTDOOR`.
 
 ---
 
-## 🛠️ Installation & Setup
+## Tech Stack
 
-### Prerequisites
-* **Java 17** or higher
-* **Maven 3.8.1** or higher
+| Layer         | Technology                      |
+| ------------- | ------------------------------- |
+| Framework     | Spring Boot 3.2                 |
+| Language      | Java 21                         |
+| Build         | Maven (Maven Wrapper)           |
+| Database      | H2 (dev) · PostgreSQL 16 (prod) |
+| Data access   | Spring JdbcClient               |
+| Observability | Spring Boot Actuator            |
+| Container     | Docker + Docker Compose         |
+| CI            | GitHub Actions                  |
 
-### 1️⃣ Clone & Build
+---
+
+## Local Development (H2)
+
+**Prerequisites:** Java 21, Maven 3.8+
+
 ```bash
-git clone [https://github.com/your-username/run-management-api.git](https://github.com/your-username/run-management-api.git)
-cd run-management-api
-mvn clean install
+cd Runners_Application
+./mvnw spring-boot:run
 ```
 
-### 2️⃣ Run the Application
+The app starts on `http://localhost:8080`.
+H2 console: `http://localhost:8080/h2-console` · JDBC URL: `jdbc:h2:mem:runnerz` · User: `sa`
+
+10 sample runs are loaded automatically from `src/main/resources/data/runs.json` on first start.
+
+---
+
+## Docker (PostgreSQL)
+
+**Prerequisites:** Docker, Docker Compose
+
 ```bash
-mvn spring-boot:run
+# Build and start both services
+docker compose up --build
+
+# Stop and remove containers
+docker compose down
+
+# Stop and remove containers + database volume
+docker compose down -v
 ```
 
-### 3️⃣ Database Access
-View your data in real-time by visiting:
-`http://localhost:8080/h2-console`
-* **JDBC URL:** `jdbc:h2:mem:testdb`
-* **User:** `sa` (No password)
+The app will be available at `http://localhost:8080` backed by a persistent PostgreSQL instance.
+
+### Environment Variables
+
+| Variable                 | Default     | Description                 |
+| ------------------------ | ----------- | --------------------------- |
+| `SPRING_PROFILES_ACTIVE` | `prod`      | Activates PostgreSQL config |
+| `DB_HOST`                | `localhost` | PostgreSQL host             |
+| `DB_PORT`                | `5432`      | PostgreSQL port             |
+| `DB_NAME`                | `runnerz`   | Database name               |
+| `DB_USER`                | `postgres`  | Database username           |
+| `DB_PASS`                | `postgres`  | Database password           |
+
+Override any variable in `docker-compose.yml` or pass them via `-e` flags.
 
 ---
 
-## 📈 Engineering Highlights
+## CI / CD
 
-* **In-Memory Speed:** Utilizing H2 for rapid prototyping and local testing environments.
-* **RESTful Best Practices:** Implementation of appropriate HTTP status codes (201 Created, 204 No Content) and semantic URL structures.
-* **Configuration Management:** Using `application.properties` to toggle between temporary and persistent storage modes.
+GitHub Actions runs on every push and pull request to `main`:
 
----
+1. **build-and-test** — compiles the project and runs all tests (`./mvnw clean verify`)
+2. **docker** — builds the Docker image on merges to `main` (tags with commit SHA + `latest`)
 
-## 📄 License
-This project is licensed under the **MIT License**.
+See `.github/workflows/ci.yml`.
 
 ---
-**Developed by Angelos Fikias** *Building efficient, scalable microservices with Spring Boot.*
+
+## Project Structure
+
+```
+runners-app/
+├── .github/workflows/ci.yml          ← GitHub Actions pipeline
+├── docs/spring-reference.md          ← Spring Boot reference notes
+├── docker-compose.yml                ← App + PostgreSQL services
+└── Runners_Application/
+    ├── Dockerfile                    ← Multi-stage build
+    ├── pom.xml
+    └── src/main/
+        ├── java/dev/fikias/runners/
+        │   ├── Application.java
+        │   ├── GlobalExceptionHandler.java
+        │   └── run/
+        │       ├── Run.java                 ← record with validation
+        │       ├── RunController.java       ← REST layer
+        │       ├── RunRepository.java       ← interface
+        │       ├── JdbcRunRepository.java   ← JDBC implementation
+        │       ├── RunJsonDataLoader.java   ← seeds DB on first start
+        │       ├── RunNotFoundException.java
+        │       ├── Runs.java
+        │       └── Location.java
+        └── resources/
+            ├── application.properties       ← dev (H2)
+            ├── application-prod.properties  ← prod (PostgreSQL)
+            ├── schema.sql
+            └── data/runs.json
+```
