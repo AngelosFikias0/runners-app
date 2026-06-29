@@ -3,18 +3,16 @@ package dev.fikias.runners.run;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/runs")
 class RunController {
 
-    private final JdbcRunRepository runRepository;
+    private final RunRepository runRepository;
 
-    RunController(JdbcRunRepository runRepository) {
+    RunController(RunRepository runRepository) {
         this.runRepository = runRepository;
     }
 
@@ -25,11 +23,8 @@ class RunController {
 
     @GetMapping("/{id}")
     Run findById(@PathVariable Integer id) {
-        Optional<Run> run = runRepository.findById(id);
-        if(run.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Run not found.");
-        }
-        return run.get();
+        return runRepository.findById(id)
+                .orElseThrow(RunNotFoundException::new);
     }
 
     @ResponseStatus(HttpStatus.CREATED)
@@ -41,7 +36,7 @@ class RunController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PutMapping("/{id}")
     void update(@Valid @RequestBody Run run, @PathVariable Integer id) {
-        runRepository.update(run,id);
+        runRepository.update(run, id);
     }
 
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -50,6 +45,7 @@ class RunController {
         runRepository.delete(id);
     }
 
+    @GetMapping("/search")
     List<Run> findByLocation(@RequestParam String location) {
         return runRepository.findByLocation(location);
     }
