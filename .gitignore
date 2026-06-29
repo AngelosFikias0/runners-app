@@ -2,7 +2,8 @@
 .idea/
 *.iml
 
-# Build output
+# Maven build output
+target/
 out/
 build/
 
@@ -13,3 +14,6 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude Code local settings
+.claude/
